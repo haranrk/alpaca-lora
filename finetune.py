@@ -225,7 +225,7 @@ def train(
         #     train_val["test"].shuffle().map(generate_and_tokenize_prompt)
         # )
         train_data = (
-            load_dataset("samsum",split="train[10:20]")
+            load_dataset("samsum",split="train[10:2000]")
         )
         val_data = (
             load_dataset("samsum",split="validation")
