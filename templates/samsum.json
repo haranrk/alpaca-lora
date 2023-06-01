@@ -1,0 +1,6 @@
+{
+    "description": "Template used for samsum",
+    "prompt_input": "Below is a conversation. Write the summary of the conversation.",
+    "prompt_no_input": "Below is a conversation. Write the summary of the conversation.",
+    "response_split": "### Response:"    
+}
