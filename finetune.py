@@ -28,7 +28,7 @@ from utils.prompter import Prompter
 def train(
     # model/data params
     base_model: str = "",  # the only required argument
-    data_path: str = "yahma/alpaca-cleaned",
+    data_path: str = "samsum",
     output_dir: str = "./lora-alpaca",
     # training hyperparams
     batch_size: int = 128,
@@ -81,7 +81,7 @@ def train(
             f"wandb_watch: {wandb_watch}\n"
             f"wandb_log_model: {wandb_log_model}\n"
             f"resume_from_checkpoint: {resume_from_checkpoint or False}\n"
-            f"prompt template: {prompt_template_name}\n"
+            f"prompt_template: {prompt_template_name}\n"
         )
     assert (
         base_model
@@ -109,12 +109,12 @@ def train(
     if len(wandb_log_model) > 0:
         os.environ["WANDB_LOG_MODEL"] = wandb_log_model
 
-    model = LlamaForCausalLM.from_pretrained(
-        base_model,
-        load_in_8bit=True,
-        torch_dtype=torch.float16,
-        device_map=device_map,
-    )
+    # model = LlamaForCausalLM.from_pretrained(
+    #     base_model,
+    #     load_in_8bit=True,
+    #     torch_dtype=torch.float16,
+    #     device_map=device_map,
+    # )
 
     tokenizer = LlamaTokenizer.from_pretrained(base_model)
 
@@ -146,11 +146,14 @@ def train(
         return result
 
     def generate_and_tokenize_prompt(data_point):
-        full_prompt = prompter.generate_prompt(
-            data_point["instruction"],
-            data_point["input"],
-            data_point["output"],
-        )
+        if data_path=="samsum":
+            full_prompt = f"Below is a conversation. Write the summary of the conversation. \n\n###Conversation:\n{data_point['dialogue']}\n\n###Summary:{data_point['summary']}"
+        else:
+            full_prompt = prompter.generate_prompt(
+                data_point["instruction"],
+                data_point["input"],
+                data_point["output"],
+            )
         tokenized_full_prompt = tokenize(full_prompt)
         if not train_on_inputs:
             user_prompt = prompter.generate_prompt(
@@ -171,7 +174,7 @@ def train(
             ]  # could be sped up, probably
         return tokenized_full_prompt
 
-    model = prepare_model_for_int8_training(model)
+    # model = prepare_model_for_int8_training(model)
 
     config = LoraConfig(
         r=lora_r,
@@ -181,12 +184,13 @@ def train(
         bias="none",
         task_type="CAUSAL_LM",
     )
-    model = get_peft_model(model, config)
+    # model = get_peft_model(model, config)
 
     if data_path.endswith(".json") or data_path.endswith(".jsonl"):
         data = load_dataset("json", data_files=data_path)
     else:
         data = load_dataset(data_path)
+    
 
     if resume_from_checkpoint:
         # Check the available weights and load them
@@ -211,15 +215,23 @@ def train(
     model.print_trainable_parameters()  # Be more transparent about the % of trainable params.
 
     if val_set_size > 0:
-        train_val = data["train"].train_test_split(
-            test_size=val_set_size, shuffle=True, seed=42
-        )
+        # train_val = data["train"].train_test_split(
+        #     test_size=val_set_size, shuffle=True, seed=42
+        # )
+        # train_data = (
+        #     train_val["train"].shuffle().map(generate_and_tokenize_prompt)
+        # )
+        # val_data = (
+        #     train_val["test"].shuffle().map(generate_and_tokenize_prompt)
+        # )
         train_data = (
-            train_val["train"].shuffle().map(generate_and_tokenize_prompt)
+            load_dataset("samsum",split="train[10:20]")
         )
         val_data = (
-            train_val["test"].shuffle().map(generate_and_tokenize_prompt)
+            load_dataset("samsum",split="val")
         )
+        print(train_data)
+        print(val_data)
     else:
         train_data = data["train"].shuffle().map(generate_and_tokenize_prompt)
         val_data = None
