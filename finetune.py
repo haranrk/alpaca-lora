@@ -228,7 +228,7 @@ def train(
             load_dataset("samsum",split="train[10:20]")
         )
         val_data = (
-            load_dataset("samsum",split="val")
+            load_dataset("samsum",split="validation")
         )
         print(train_data)
         print(val_data)
